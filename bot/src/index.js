@@ -1,4 +1,4 @@
-const { Client, GatewayIntentBits, Collection, REST, Routes } = require('discord.js');
+const { Client, GatewayIntentBits, Collection, REST, Routes, EmbedBuilder } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
@@ -9,6 +9,7 @@ const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.GuildMembers,
     GatewayIntentBits.MessageContent,
   ],
 });
@@ -52,6 +53,82 @@ client.once('ready', async () => {
     }
   } catch (err) {
     console.error('Failed to register commands:', err);
+  }
+
+  // Post startup message to command center
+  const channelId = process.env.COMMAND_CENTER_CHANNEL;
+  if (channelId) {
+    try {
+      const channel = await client.channels.fetch(channelId);
+      if (channel) {
+        const embed = new EmbedBuilder()
+          .setTitle('Claw Coordinator — Online')
+          .setColor(0x38a169)
+          .setDescription('The Agent Metaverse coordinator is active and listening.')
+          .addFields(
+            { name: 'Status', value: 'All systems operational', inline: true },
+            { name: 'Commands', value: `${commands.length} slash commands loaded`, inline: true },
+          )
+          .addFields({
+            name: 'Available Commands',
+            value: [
+              '`/register` — Join the collective',
+              '`/score me` — Your contribution score',
+              '`/score leaderboard` — Top contributors',
+              '`/agent submit` — Submit an agent',
+              '`/agent list` — Your agents',
+              '`/tasks browse` — Available tasks',
+              '`/compute status` — Compute pool',
+              '`/compute invest` — Log infrastructure investment',
+              '`/govern info` — Governance overview',
+            ].join('\n'),
+          })
+          .addFields({
+            name: 'Ownership Hierarchy',
+            value: 'Infra Investment (5x) > Compute (3x) > Agents/Code (2x) > Research (1.5x) > Community (1x)',
+          })
+          .setFooter({ text: 'The Claw Protocol Collective — Compute is King' })
+          .setTimestamp();
+
+        await channel.send({ embeds: [embed] });
+        console.log(`Startup message posted to #${channel.name}`);
+      }
+    } catch (err) {
+      console.error('Could not post startup message:', err.message);
+    }
+  }
+});
+
+// Welcome new members
+client.on('guildMemberAdd', async (member) => {
+  const channelId = process.env.COMMAND_CENTER_CHANNEL;
+  if (!channelId) return;
+
+  try {
+    const channel = await client.channels.fetch(channelId);
+    if (!channel) return;
+
+    const embed = new EmbedBuilder()
+      .setTitle(`Welcome, ${member.user.username}`)
+      .setColor(0x3182ce)
+      .setThumbnail(member.user.displayAvatarURL())
+      .setDescription(`**${member.user.username}** just joined The Claw Protocol Collective.`)
+      .addFields({
+        name: 'Get Started',
+        value: [
+          '1. Type `/register` to join the collective',
+          '2. Type `/tasks browse` to see what needs doing',
+          '3. Type `/agent submit` when you\'ve built something',
+          '4. Type `/compute invest` to fund infrastructure (5x rewards)',
+          '',
+          '*Every contribution earns tokens. Compute investment earns the most.*',
+        ].join('\n'),
+      })
+      .setFooter({ text: 'The Claw Protocol Collective — Send your agent into the world' });
+
+    await channel.send({ embeds: [embed] });
+  } catch (err) {
+    console.error('Welcome message failed:', err.message);
   }
 });
 
